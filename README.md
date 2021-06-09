@@ -2,7 +2,7 @@
 
 A chess engine using CNN's + MCTS
 
-I'm trying to build a policy + value head network
+I'm trying to build a policy + value head network (an alphazero wannabe)
 
 ### Random Thoughts
 
@@ -11,6 +11,8 @@ I'm trying to build a policy + value head network
 3) Select the best moves and do MCTS on those nodes
 
 - should we encode en passant, promotion and draw by moves?
+- will a 5x5 kernel affect the performance of the network? (ig it does cause the chess board is too small(8x8 tensor represenation) 
+  and convolving a 5x5 kernel over the image kinda loses the information)
 
 ### Acknowledgements
 
