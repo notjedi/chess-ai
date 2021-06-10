@@ -1,12 +1,11 @@
 import chess
 import numpy as np
 
-VALUES = {'P': 1, 'N': 2, 'B': 3, 'R': 4, 'Q': 5, 'K': 6}
+VALUES = {'P': chess.PAWN, 'N': chess.KNIGHT, 'B': chess.BISHOP, 'R': chess.ROOK, 'Q': chess.QUEEN, 'K': chess.KING}
 
 class State():
-    def __init__(self, board, move=None):
+    def __init__(self, board):
         self.board = board
-        self.move = move
 
     def encode_board(self):
         x = np.zeros((6, 64), dtype=np.uint8)
@@ -17,10 +16,3 @@ class State():
                 x[VALUES[symbol.upper()]-1][i] = 1 if symbol.isupper() else -1
 
         return x.reshape(6, 8, 8)
-
-    def encode_move(self):
-        move = self.move.__str__()
-        try:
-            return chess.parse_square(move[-2:])
-        except ValueError:
-            return chess.parse_square(move[2:4])

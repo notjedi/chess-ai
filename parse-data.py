@@ -22,8 +22,7 @@ def parse_dataset(data_dir):
             result = RESULTS[game.headers['Result']]
 
             for move in game.mainline_moves():
-                state = State(board, move)
-                x, p = state.encode_board(), state.encode_move()
+                x, p = State(board).encode_board(), move.to_square
                 X.append(x)
                 P.append(p)
                 V.append(result)
