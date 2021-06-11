@@ -1,7 +1,8 @@
+import os
 import chess
 import numpy as np
 
-from tqdm import tqdm
+from tqdm import trange
 from chess import pgn
 from glob import glob
 from state import State
@@ -10,32 +11,42 @@ from train import DATA_DIR
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
 
 def parse_dataset(data_dir):
-    X, P, V = [], [], []
 
-    # for file in tqdm(glob(data_dir + '/sample.pgn')):
-    for file in tqdm(glob(data_dir + '/*.pgn')):
+    # for file in glob(data_dir + '/sample.pgn'):
+    # while (game := pgn.read_game(games)) is not None:
+    for file in glob(data_dir + '/*.pgn'):
+        X, P, V = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
+        x, p, v = [], [], []
+
         games = open(file, encoding='utf-8')
-        while (game := pgn.read_game(games)) is not None:
-            # if len(list(game.mainline_moves())) == 0:
-            #     continue
+        total_games = len(games.read().split('\n\n')) // 2
+        games.close()
+        games = open(file, encoding='utf-8')
+        print(file)
+
+        for i in trange(total_games):
+
+            if (i % 1000 == 0 or i == total_games-1) and i != 0:
+                X = np.concatenate((X, np.array(x)), axis=0)
+                P = np.concatenate((P, np.array(p)), axis=0)
+                V = np.concatenate((V, np.array(v)), axis=0)
+                x, p, v = [], [], []
+
+            game = pgn.read_game(games)
             board = chess.Board()
             result = RESULTS[game.headers['Result']]
-
             for move in game.mainline_moves():
-                x, p = State(board).encode_board(), move.to_square
-                X.append(x)
-                P.append(p)
-                V.append(result)
-                if not board.turn:
-                    X[-1] = -X[-1]
-                    V[-1] = -V[-1]
-                board.push(move)
-        games.close()
+                x.append(State(board).encode_board())
+                p.append(move.to_square)
+                v.append(result)
 
-    X, P, V = np.array(X, dtype=np.float32), np.array(P), np.array(V, dtype=np.float32)
-    return X, P, V
+                if not board.turn:
+                    v[-1] = -v[-1]
+                board.push(move)
+
+        np.savez(DATA_DIR + '/{}.npz'.format(os.path.basename(file)), X, P, V)
+        games.close()
 
 
 if __name__ == '__main__':
-    X, P, V = parse_dataset(DATA_DIR)
-    np.savez(DATA_DIR + '/processed_data.npz', X, P, V)  
+    parse_dataset(DATA_DIR)

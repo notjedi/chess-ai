@@ -15,4 +15,6 @@ class State():
                 symbol = piece.symbol().upper()
                 x[VALUES[symbol.upper()]-1][i] = 1 if symbol.isupper() else -1
 
+        if not self.board.turn:
+            x = -x
         return x.reshape(6, 8, 8)

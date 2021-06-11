@@ -4,6 +4,7 @@ import numpy as np
 from state import State
 
 CPUCT = 1
+RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
 
 class Node():
     """
@@ -68,7 +69,6 @@ class Node():
 
 class MCTS():
 
-    # do we need MAXVAL?
     def __init__(self, board: chess.Board, net, num_sims):
         self.board = board
         self.root = Node(None, board.fen(), 1)
@@ -77,26 +77,30 @@ class MCTS():
 
     def playout(self):
 
-        node = self.root
-        board = chess.Board(self.board.fen())
-        while True:
-            if board.is_game_over():
-                break
+        # select
+        node = self.get_leaf_node()
 
-            move, node = node.best_node_uct()
-            board.push(chess.Move.from_uci(str(move)))
-            state = State(board).encode_board()
-            
-            policy, value = self.net(state)
-            node.expand_node(policy)
+        # expand
+        board = chess.Board(node.fen)
+        state = State(board).encode_board()
+        # consider turns
+        if not board.turn:
+            state = -state
+        policy, value = self.net(state)
+        node.expand_node(policy)
+
+        # backpropagte
+        if board.is_game_over():
+            node.backpropagte(RESULTS[board.result()])
+        else:
             # TODO: should i pass -value? i don't think so
+            # TODO: value should be 0 or 1
             node.backpropagte(value)
 
-    # TODO consider turns
-    # TODO obv i cannot afford to search till the end of the tree
-    # (bro i'm runing this on a cpu), so parallelize the search?
-    def search(self):
+    def choose_move(self):
         for _ in range(self.num_sims):
+            self.playout()
+        return self.root.best_node_uct()
 
     def get_leaf_node(self):
         node = self.root
