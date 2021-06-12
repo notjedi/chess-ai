@@ -2,6 +2,9 @@ import chess
 import numpy as np
 
 VALUES = {'P': chess.PAWN, 'N': chess.KNIGHT, 'B': chess.BISHOP, 'R': chess.ROOK, 'Q': chess.QUEEN, 'K': chess.KING}
+# TODO: 8*8*3(including turns) board representation?
+# TODO: 8*8*12(but too sparse) board representation?
+# TODO: encode casling rights, move counts, 50 move rule, en passant?
 
 class State():
     def __init__(self, board):

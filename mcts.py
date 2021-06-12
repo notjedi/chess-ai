@@ -1,3 +1,4 @@
+import torch
 import chess
 import numpy as np
 
@@ -27,31 +28,19 @@ class Node():
         self.U = 0
         self.P = prob
 
-    def encode_legal_moves(self, board):
-        out = np.zeros(64)
-        for move in board.legal_moves:
-            board.push(move)
-            out[move.to_square] = 1
-            board.pop()
-        return out
-
-    def expand_node(self, probablity):
+    def expand(self, probablity):
         board = chess.Board(self.fen)
-        out = self.encode_legal_moves(board)
-        probablity = probablity * out
 
-        # for move, prob in (board.legal_moves, probablity):
-        #     self.children[move] = Node(self, board.fen(), prob)
         for move in board.legal_moves:
-            self.children[move] = Node(self, board.fen(), probablity[move.to_square])
+            self.children[move] = Node(self, self.fen, probablity[move.to_square])
 
-    def node_value(self):
+    def value(self):
         # sqrt over the whole term or just the numerator?
         self. U = CPUCT * self.P * (np.sqrt(self.parent.N) / (self.N + 1))
         return self.Q + self.U
 
     def best_node_uct(self):
-        return max(self.children.items(), key=lambda x: x[1].node_value())
+        return max(self.children.items(), key=lambda x: x[1].value())
 
     def is_leaf(self):
         return len(self.children) == 0
@@ -82,12 +71,12 @@ class MCTS():
 
         # expand
         board = chess.Board(node.fen)
-        state = State(board).encode_board()
+        state = torch.tensor(State(board).encode_board()[np.newaxis])
         # consider turns
         if not board.turn:
             state = -state
         policy, value = self.net(state)
-        node.expand_node(policy)
+        node.expand(policy)
 
         # backpropagte
         if board.is_game_over():
@@ -95,6 +84,10 @@ class MCTS():
         else:
             # TODO: should i pass -value? i don't think so
             # TODO: value should be 0 or 1
+            # if int(round(value)) == 1:
+            #     value = 1
+            # else:
+            #     value = 0
             node.backpropagte(value)
 
     def choose_move(self):
@@ -104,6 +97,6 @@ class MCTS():
 
     def get_leaf_node(self):
         node = self.root
-        while node.is_leaf():
+        while not node.is_leaf():
             node = node.best_node_uct()[1]
         return node
