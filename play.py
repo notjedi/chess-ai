@@ -53,7 +53,7 @@ def move():
 
 
 if __name__ == '__main__':
-    net.train()
+    net.eval()
     # TODO: load the model here
     # net.load_state_dict()
     app.run(debug=True)
