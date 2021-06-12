@@ -1,0 +1,43 @@
+<html>
+    <head>
+        <title> Chess </title>
+    <script src="static/jquery.min.js"></script>
+    </head>
+
+    <script type='text/javascript'>
+
+        function changeImage(a) {
+            if (a.includes('game over')) {
+                document.getElementById("over").innerText = "Game Over";
+            } else {
+                document.getElementById("board").src = 'data:image/svg+xml;base64, '+ a;
+            }
+        }
+
+        function getMove() {
+            let inputVal = document.getElementById("move").value;
+            document.getElementById("move").value = '';
+            console.log('inside getMove', inputVal)
+            return inputVal;
+        }
+
+        function nextMove() {
+            $.get('/move', {'move': getMove()}, changeImage);
+        }
+
+    </script>
+
+    <body>
+        <img id='board' width=600 height=600 src='data:image/svg+xml;base64, repr'></img>
+
+        <br>
+        <br>
+        <input id='move' type="text" name="Name">  
+        <button id='next_move' type="button" onclick='nextMove()'> Next Move </button>
+        <p id='over'></p>
+        <br>
+
+    </body>
+
+
+</html>

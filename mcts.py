@@ -30,7 +30,6 @@ class Node():
 
     def expand(self, probablity):
         board = chess.Board(self.fen)
-
         for move in board.legal_moves:
             self.children[move] = Node(self, self.fen, probablity[move.to_square])
 
@@ -76,7 +75,7 @@ class MCTS():
         if not board.turn:
             state = -state
         policy, value = self.net(state)
-        node.expand(policy)
+        node.expand(policy.detach().numpy().squeeze())
 
         # backpropagte
         if board.is_game_over():

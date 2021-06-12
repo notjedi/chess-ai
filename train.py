@@ -8,8 +8,16 @@ from torchsummary import summary
 from matplotlib import pyplot as plt
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.tensorboard import SummaryWriter
 
 DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
+
+# https://web.stanford.edu/~surag/posts/alphazero.html
+# https://int8.io/monte-carlo-tree-search-beginners-guide/
+# https://www.datahubbs.com/two-headed-a2c-network-in-pytorch/
+# https://jeffbradberry.com/posts/2015/09/intro-to-monte-carlo-tree-search/
+# https://nikcheerla.github.io/deeplearningschool/2018/01/01/AlphaZero-Explained/
+# https://github.com/DylanSnyder31/AlphaZero-Chess/blob/660f50f56dc8772cceaf46d33a97aed8b0775fa8/Reinforcement_Learning/Monte_Carlo_Search_Tree/MCTS_main.py
 
 class ChessDataset(Dataset):
 
@@ -42,7 +50,7 @@ class ConvBlock(nn.Module):
         self.batch_norm = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
-        x = F.relu(self.conv(x))
+        x = F.relu(self.conv(x.float()))
         return self.batch_norm(x)
 
 
@@ -97,11 +105,6 @@ class Net(nn.Module):
         return policy, value
 
 
-def plot(loss1, loss2):
-    plt.plot(loss1)
-    plt.plot(loss2)
-
-
 if __name__ == '__main__':
 
     chess_dataset = ChessDataset(DATA_DIR)
@@ -111,21 +114,22 @@ if __name__ == '__main__':
     opt = optim.Adam(net.parameters())
     loss = Loss()
     summary(net, input_size=(6, 8, 8))
+    writer = SummaryWriter()
 
     EPOCHS = 10
+    step = 0
     for epoch in trange(EPOCHS):
-        policy_losses = []
-        value_losses = []
-        for (data, policy, value) in data_loader:
+        for data, policy, value in data_loader:
             opt.zero_grad()
             policy_pred, value_pred = net(data)
 
             policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
             policy_loss.backward(retain_graph=True)
             value_loss.backward()
+            writer.add_scalar("Policy Loss/train", policy_loss, step)
+            writer.add_scalar("Value Loss/train", value_loss, step)
             opt.step()
-
-            policy_losses.append(policy_loss)
-            value_losses.append(value_loss)
+            step += 1
             # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
-        plot(policy_losses, value_losses)
+        writer.flush()
+    writer.close()
