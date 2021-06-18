@@ -2,8 +2,9 @@ import torch
 import numpy as np
 
 from torch import nn
+from glob import glob
 from torch import optim
-from tqdm import trange
+from tqdm import trange, tqdm
 from torchsummary import summary
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Dataset
@@ -20,9 +21,14 @@ DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 
 class ChessDataset(Dataset):
 
-    def __init__(self, data_dir, file_name):
-        data = np.load(data_dir + '/' + file_name)
-        self.x, self.policy, self.value = data['arr_0'], data['arr_1'], data['arr_2']
+    def __init__(self, data_dir):
+        self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
+        for file in tqdm(glob(data_dir + '/*.npz')):
+            data = np.load(file)
+            self.x = np.concatenate((self.x, data['arr_0']), axis=0)
+            self.policy = np.concatenate((self.policy, data['arr_1']), axis=0)
+            self.value = np.concatenate((self.value, data['arr_2']), axis=0)
+        # self.x, self.policy, self.value = data['arr_0'], data['arr_1'], data['arr_2']
         # self.x, self.policy, self.value = np.asarray(data['arr_0'], np.float32), np.asarray(data['arr_1'], np.float32), np.asarray(data['arr_2'], np.float32)
 
     def __len__(self):
@@ -127,7 +133,7 @@ class Net(nn.Module):
 
 if __name__ == '__main__':
 
-    chess_dataset = ChessDataset(DATA_DIR, 'ficsgamesdb_2015_chess2000_nomovetimes_209096.npz')
+    chess_dataset = ChessDataset(DATA_DIR)
     data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
 
     net = Net()

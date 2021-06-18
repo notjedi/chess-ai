@@ -1,4 +1,5 @@
 import chess
+import torch
 import base64
 import traceback
 
@@ -18,6 +19,8 @@ def encode_svg(board):
 
 @app.route('/')
 def main():
+    net.load_state_dict(torch.load('/mnt/Seagate/Code/chess-ai/model/model.pth', map_location=torch.device('cpu')))
+    net.eval()
     page = html.replace('repr', encode_svg(board))
     return page
 
@@ -33,7 +36,7 @@ def move():
     move, value = request.args.get('move', default=''), None
     if not board.turn:
         # the net has to play
-        mcts = MCTS(board, net, 500)
+        mcts = MCTS(board, net, 250)
         move, value = mcts.choose_move()
         move = move.__str__()
         value = value.value()
@@ -53,7 +56,4 @@ def move():
 
 
 if __name__ == '__main__':
-    net.eval()
-    # TODO: load the model here
-    # net.load_state_dict()
     app.run(debug=True)

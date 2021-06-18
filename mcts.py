@@ -54,6 +54,10 @@ class Node():
             self.parent.backpropagte(-value)
         self.update_leaf_value(value)
 
+    def deleteNodes(self):
+        for child in self.children.values():
+            child.deleteNodes()
+
 
 class MCTS():
 
@@ -92,7 +96,9 @@ class MCTS():
     def choose_move(self):
         for _ in range(self.num_sims):
             self.playout()
-        return self.root.best_node_uct()
+        selected = self.root.best_node_uct()
+        self.root.deleteNodes()
+        return selected
 
     def get_leaf_node(self):
         node = self.root
