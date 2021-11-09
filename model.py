@@ -1,18 +1,12 @@
 import torch
 import numpy as np
-import os
 
 from torch import nn
-from glob import glob
-from torch import optim
-from tqdm import trange, tqdm
-from torchsummary import summary
+from tqdm import trange
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.data import Dataset
 
-DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
-EPOCHS = 10
+EPOCHS = 5
 
 # https://web.stanford.edu/~surag/posts/alphazero.html
 # https://int8.io/monte-carlo-tree-search-beginners-guide/
@@ -23,14 +17,13 @@ EPOCHS = 10
 
 class ChessDataset(Dataset):
 
-    def __init__(self, file):
+    # TODO: Try  moving to GPU memory?
+    def __init__(self, x, policy, value):
+        print(len(x))
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
-        data = np.load(file)
-        self.x = np.concatenate((self.x, data['arr_0']), axis=0)
-        self.policy = np.concatenate((self.policy, data['arr_1']), axis=0)
-        self.value = np.concatenate((self.value, data['arr_2']), axis=0)
-        # self.x, self.policy, self.value = data['arr_0'], data['arr_1'], data['arr_2']
-        # self.x, self.policy, self.value = np.asarray(data['arr_0'], np.float32), np.asarray(data['arr_1'], np.float32), np.asarray(data['arr_2'], np.float32)
+        self.x = np.concatenate((self.x, np.array(x)), axis=0)
+        self.policy = np.concatenate((self.policy, np.array(policy)), axis=0)
+        self.value = np.concatenate((self.value, np.array(value)), axis=0)
 
     def __len__(self):
         return len(self.x)
@@ -122,6 +115,7 @@ class Net(nn.Module):
     # ((img_size - kern_size + (2 * padding_size))/stride) + 1
     def __init__(self):
         super(Net, self).__init__()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.conv = ConvBlock(6, 256, 3, 1, 1)
         for block in range(0, 10):
             setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
@@ -134,55 +128,28 @@ class Net(nn.Module):
         policy, value = self.out_block(x.clone())
         return policy, value
 
+    def fit(self, data_loader, opt, loss, writer, step):
 
-def train(data_loader, step):
+        for _ in trange(EPOCHS):
+            for data, policy, value in data_loader:
 
-    for _ in trange(EPOCHS):
-        for data, policy, value in data_loader:
-            opt.zero_grad()
-            data = data.to(device)
-            policy = policy.long().to(device)
-            value = value.float().to(device)
-            policy_pred, value_pred = net(data)
+                data = data.to(self.device)
+                policy = policy.long().to(self.device)
+                value = value.float().to(self.device)
+                policy_pred, value_pred = self.forward(data)
 
-            policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
-            policy_loss.backward(retain_graph=True)
-            value_loss.backward()
-            opt.step()
+                opt.zero_grad()
+                policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
+                policy_loss.backward(retain_graph=True)
+                value_loss.backward()
+                opt.step()
 
-            if step % 1000 == 0:
-                writer.add_scalar("Policy Loss/train", policy_loss, step)
-                writer.add_scalar("Value Loss/train", value_loss, step)
-                print(policy_loss, value_loss)
-            step += 1
-            # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
+                if step % 1000 == 0:
+                    writer.add_scalar("Policy Loss/train", policy_loss, step)
+                    writer.add_scalar("Value Loss/train", value_loss, step)
+                    print(policy_loss, value_loss)
+                    # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
+                step += 1
 
-        writer.flush()
-        torch.save(net.state_dict(), 'model/model.pth')
-    return step
-
-
-if __name__ == '__main__':
-
-    # TODO: change init method
-    net = Net()
-    opt = optim.Adam(net.parameters())
-    loss = Loss()
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    torch.device(device)
-    net.to(device)
-    torch.autograd.set_detect_anomaly(True)
-
-    # summary(net, input_size=(6, 8, 8))
-    net.train()
-    writer = SummaryWriter()
-
-    step = 0
-    # for file in glob('data/*.npz'):
-    for file in ['data/ficsgamesdb_2011_chess2000_nomovetimes_230231_13.npz']:
-        print(file)
-        chess_dataset = ChessDataset(file)
-        data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
-        step = train(data_loader, step)
-    writer.close()
+            writer.flush()
+        return step

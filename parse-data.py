@@ -1,50 +1,76 @@
-import os
+import torch
 import chess
-import numpy as np
 
 from tqdm import trange
 from chess import pgn
 from glob import glob
+from torch import optim
 from state import State
-from train import DATA_DIR
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
+from model import Net, Loss, ChessDataset
+
+DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
 
-def parse_dataset(data_dir):
+def parse_dataset(file, net, opt, loss, writer, step):
 
-    for file in glob(data_dir + '/*.pgn'):
-        X, P, V = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
-        x, p, v = [], [], []
+    x, p, v = [], [], []
 
-        games = open(file, encoding='utf-8')
-        total_games = len(games.read().split('\n\n')) // 2
-        games.close()
-        games = open(file, encoding='utf-8')
-        print(file)
+    games = open(file, encoding='utf-8')
+    total_games = len(games.read().split('\n\n')) // 2
+    games.close()
+    games = open(file, encoding='utf-8')
+    moves = 1
 
-        for i in trange(total_games):
+    for i in trange(total_games):
 
-            if (i % 1000 == 0 or i == total_games-1) and i != 0:
-                X = np.concatenate((X, np.array(x)), axis=0)
-                P = np.concatenate((P, np.array(p)), axis=0)
-                V = np.concatenate((V, np.array(v)), axis=0)
-                x, p, v = [], [], []
+        # TODO: change frequency
+        if (moves % 1000 == 0 or i == total_games-1):
+            chess_dataset = ChessDataset(x, p, v)
+            data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
+            step = net.fit(data_loader, opt, loss, writer, step)
+            torch.save(net.state_dict(), 'model/model.pth')
+            x, p, v = [], [], []
 
-            game = pgn.read_game(games)
-            board = chess.Board()
-            result = RESULTS[game.headers['Result']]
-            for move in game.mainline_moves():
-                x.append(State(board).encode_board())
-                p.append(move.to_square)
-                v.append(result)
+        game = pgn.read_game(games)
+        board = chess.Board()
+        result = RESULTS[game.headers['Result']]
+        for move in game.mainline_moves():
+            x.append(State(board).encode_board())
+            p.append(move.to_square)
+            v.append(result)
 
-                if not board.turn:
-                    v[-1] = -v[-1]
-                board.push(move)
+            if not board.turn:
+                v[-1] = -v[-1]
+            board.push(move)
+            moves += 1
 
-        np.savez(DATA_DIR + '/{}.npz'.format(os.path.basename(file)), X, P, V)
-        games.close()
+    games.close()
+    return step
 
 
 if __name__ == '__main__':
-    parse_dataset(DATA_DIR)
+
+    # TODO: change init method?
+    net = Net()
+    opt = optim.Adam(net.parameters())
+    loss = Loss()
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.device(device)
+    net.to(device)
+    torch.autograd.set_detect_anomaly(True)
+
+    # summary(net, input_size=(6, 8, 8))
+    net.train()
+    writer = SummaryWriter()
+
+    step = 0
+    # for file in glob('data/*.npz'):
+    # for file in ['data/ficsgamesdb_2011_chess2000_nomovetimes_230231_13.npz']:
+    for file in glob(DATA_DIR + '/*.pgn'):
+        step = parse_dataset(file, net, opt, loss, writer, step)
+
+    writer.close()
