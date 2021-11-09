@@ -15,7 +15,7 @@ class State():
         for i in range(64):
             piece = self.board.piece_at(i)
             if piece != None:
-                symbol = piece.symbol().upper()
+                symbol = piece.symbol()
                 x[VALUES[symbol.upper()]-1][i] = 1 if symbol.isupper() else -1
 
         if not self.board.turn:

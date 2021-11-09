@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import os
 
 from torch import nn
 from glob import glob
@@ -11,6 +12,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
+EPOCHS = 10
 
 # https://web.stanford.edu/~surag/posts/alphazero.html
 # https://int8.io/monte-carlo-tree-search-beginners-guide/
@@ -21,13 +23,12 @@ DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 
 class ChessDataset(Dataset):
 
-    def __init__(self, data_dir):
+    def __init__(self, file):
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
-        for file in tqdm(glob(data_dir + '/*.npz')):
-            data = np.load(file)
-            self.x = np.concatenate((self.x, data['arr_0']), axis=0)
-            self.policy = np.concatenate((self.policy, data['arr_1']), axis=0)
-            self.value = np.concatenate((self.value, data['arr_2']), axis=0)
+        data = np.load(file)
+        self.x = np.concatenate((self.x, data['arr_0']), axis=0)
+        self.policy = np.concatenate((self.policy, data['arr_1']), axis=0)
+        self.value = np.concatenate((self.value, data['arr_2']), axis=0)
         # self.x, self.policy, self.value = data['arr_0'], data['arr_1'], data['arr_2']
         # self.x, self.policy, self.value = np.asarray(data['arr_0'], np.float32), np.asarray(data['arr_1'], np.float32), np.asarray(data['arr_2'], np.float32)
 
@@ -105,6 +106,7 @@ class OutBlock(nn.Module):
 
 
 class Loss(nn.Module):
+
     def __init__(self):
         super(Loss, self).__init__()
 
@@ -115,12 +117,15 @@ class Loss(nn.Module):
 
 
 class Net(nn.Module):
+
     # ((img_size - kern_size + (2 * padding_size))/stride) + 1
     def __init__(self):
         super(Net, self).__init__()
+        # TODO: change to 1x1 convs?
+        # setattr(self, "res-block-{}".format(1), ResBlock(256, 256, 1, 1, 1))
         self.conv = ConvBlock(6, 256, 3, 1, 1)
-        for block in range(10):
-            setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
+        for block in range(1, 11):
+            setattr(self, "res-block-{}".format(block), ResBlock(256, 256, 3, 1, 1))
         self.out_block = OutBlock()
 
     def forward(self, x):
@@ -131,32 +136,51 @@ class Net(nn.Module):
         return policy, value
 
 
-if __name__ == '__main__':
+def train(data_loader, step):
 
-    chess_dataset = ChessDataset(DATA_DIR)
-    data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
-
-    net = Net()
-    opt = optim.Adam(net.parameters())
-    loss = Loss()
-    # summary(net, input_size=(6, 8, 8))
-    net.train()
-    writer = SummaryWriter()
-
-    EPOCHS = 10
-    step = 0
-    for epoch in trange(EPOCHS):
+    for _ in trange(EPOCHS):
         for data, policy, value in data_loader:
             opt.zero_grad()
+            data = data.to(device)
+            policy = policy.long().to(device)
+            value = value.float().to(device)
             policy_pred, value_pred = net(data)
 
             policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
             policy_loss.backward(retain_graph=True)
             value_loss.backward()
-            writer.add_scalar("Policy Loss/train", policy_loss, step)
-            writer.add_scalar("Value Loss/train", value_loss, step)
             opt.step()
+
+            if step % 1000 == 0:
+                writer.add_scalar("Policy Loss/train", policy_loss, step)
+                writer.add_scalar("Value Loss/train", value_loss, step)
+                print(policy_loss, value_loss)
             step += 1
             # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
+
         writer.flush()
+        torch.save(net.state_dict(), 'model/model.pth')
+    return step
+
+
+if __name__ == '__main__':
+
+    net = Net()
+    opt = optim.Adam(net.parameters())
+    loss = Loss()
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    torch.device(device)
+    net.to(device)
+
+    # summary(net, input_size=(6, 8, 8))
+    net.train()
+    writer = SummaryWriter()
+
+    step = 0
+    for file in glob('data/*.npz'):
+        print(file)
+        chess_dataset = ChessDataset(file)
+        data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
+        step = train(data_loader, step)
     writer.close()

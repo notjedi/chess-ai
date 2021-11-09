@@ -50,9 +50,10 @@ class Node():
 
     def backpropagte(self, value):
         # -value because the parent node is played by the opponent
+        # does the order matter? what is the call stack like in either cases?
+        self.update_leaf_value(value)
         if self.parent != None:
             self.parent.backpropagte(-value)
-        self.update_leaf_value(value)
 
     def deleteNodes(self):
         for child in self.children.values():
@@ -76,6 +77,7 @@ class MCTS():
         board = chess.Board(node.fen)
         state = torch.tensor(State(board).encode_board()[np.newaxis])
         # consider turns
+        # TODO: make sure?
         if not board.turn:
             state = -state
         policy, value = self.net(state)
@@ -85,12 +87,6 @@ class MCTS():
         if board.is_game_over():
             node.backpropagte(RESULTS[board.result()])
         else:
-            # TODO: should i pass -value? i don't think so
-            # TODO: value should be 0 or 1
-            # if int(round(value)) == 1:
-            #     value = 1
-            # else:
-            #     value = 0
             node.backpropagte(value)
 
     def choose_move(self):
