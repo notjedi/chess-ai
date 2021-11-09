@@ -22,17 +22,9 @@ def parse_dataset(file, net, opt, loss, writer, step):
     total_games = len(games.read().split('\n\n')) // 2
     games.close()
     games = open(file, encoding='utf-8')
-    moves = 1
+    moves = 0
 
     for i in trange(total_games):
-
-        # TODO: change frequency
-        if (moves % 1000 == 0 or i == total_games-1):
-            chess_dataset = ChessDataset(x, p, v)
-            data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
-            step = net.fit(data_loader, opt, loss, writer, step)
-            torch.save(net.state_dict(), 'model/model.pth')
-            x, p, v = [], [], []
 
         game = pgn.read_game(games)
         board = chess.Board()
@@ -46,6 +38,16 @@ def parse_dataset(file, net, opt, loss, writer, step):
                 v[-1] = -v[-1]
             board.push(move)
             moves += 1
+
+        # TODO: change frequency
+        # TODO: check why print(len(x)) is 100000
+        # TODO: make moves divisible by 64 so it doesn't drop the last few rows of data frequently
+        if (moves % 1000 == 0 or i == total_games-1):
+            chess_dataset = ChessDataset(x, p, v)
+            data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
+            step = net.fit(data_loader, opt, loss, writer, step)
+            torch.save(net.state_dict(), 'model/model.pth')
+            x, p, v = [], [], []
 
     games.close()
     return step
@@ -68,8 +70,6 @@ if __name__ == '__main__':
     writer = SummaryWriter()
 
     step = 0
-    # for file in glob('data/*.npz'):
-    # for file in ['data/ficsgamesdb_2011_chess2000_nomovetimes_230231_13.npz']:
     for file in glob(DATA_DIR + '/*.pgn'):
         step = parse_dataset(file, net, opt, loss, writer, step)
 

@@ -19,7 +19,6 @@ class ChessDataset(Dataset):
 
     # TODO: Try  moving to GPU memory?
     def __init__(self, x, policy, value):
-        print(len(x))
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
         self.x = np.concatenate((self.x, np.array(x)), axis=0)
         self.policy = np.concatenate((self.policy, np.array(policy)), axis=0)
