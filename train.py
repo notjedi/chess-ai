@@ -76,7 +76,8 @@ class ResBlock(nn.Module):
         out = self.bn1(F.relu(out))
         out = F.relu(self.conv2(out))
         # skip connection
-        out += x
+        # https://discuss.pytorch.org/t/encounter-the-runtimeerror-one-of-the-variables-needed-for-gradient-computation-has-been-modified-by-an-inplace-operation/836/5
+        out = out + x
         return self.bn2(out)
 
 
@@ -121,18 +122,16 @@ class Net(nn.Module):
     # ((img_size - kern_size + (2 * padding_size))/stride) + 1
     def __init__(self):
         super(Net, self).__init__()
-        # TODO: change to 1x1 convs?
-        # setattr(self, "res-block-{}".format(1), ResBlock(256, 256, 1, 1, 1))
         self.conv = ConvBlock(6, 256, 3, 1, 1)
-        for block in range(1, 11):
-            setattr(self, "res-block-{}".format(block), ResBlock(256, 256, 3, 1, 1))
+        for block in range(0, 10):
+            setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
         self.out_block = OutBlock()
 
     def forward(self, x):
-        x = self.conv(x)
-        for block in range(10):
-            x = getattr(self, "res-block-{}".format(block+1))(x)
-        policy, value = self.out_block(x)
+        x = self.conv(x.clone())
+        for block in range(0, 10):
+            x = getattr(self, "res-block-{}".format(block+1))(x.clone())
+        policy, value = self.out_block(x.clone())
         return policy, value
 
 
@@ -165,6 +164,7 @@ def train(data_loader, step):
 
 if __name__ == '__main__':
 
+    # TODO: change init method
     net = Net()
     opt = optim.Adam(net.parameters())
     loss = Loss()
@@ -172,13 +172,15 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.device(device)
     net.to(device)
+    torch.autograd.set_detect_anomaly(True)
 
     # summary(net, input_size=(6, 8, 8))
     net.train()
     writer = SummaryWriter()
 
     step = 0
-    for file in glob('data/*.npz'):
+    # for file in glob('data/*.npz'):
+    for file in ['data/ficsgamesdb_2011_chess2000_nomovetimes_230231_13.npz']:
         print(file)
         chess_dataset = ChessDataset(file)
         data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)

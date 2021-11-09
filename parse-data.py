@@ -12,8 +12,6 @@ RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
 
 def parse_dataset(data_dir):
 
-    # for file in glob(data_dir + '/sample.pgn'):
-    # while (game := pgn.read_game(games)) is not None:
     for file in glob(data_dir + '/*.pgn'):
         X, P, V = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
         x, p, v = [], [], []
