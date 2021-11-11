@@ -66,6 +66,7 @@ class MCTS():
         self.board = board
         self.root = Node(None, board.fen(), 1)
         self.net = net
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.num_sims = num_sims
 
     def playout(self):
@@ -76,10 +77,7 @@ class MCTS():
         # expand
         board = chess.Board(node.fen)
         state = torch.tensor(State(board).encode_board()[np.newaxis])
-        # consider turns
-        # TODO: make sure?
-        if not board.turn:
-            state = -state
+        state.to(self.device)
         policy, value = self.net(state)
         node.expand(policy.detach().numpy().squeeze())
 

@@ -17,7 +17,6 @@ EPOCHS = 5
 
 class ChessDataset(Dataset):
 
-    # TODO: Try  moving to GPU memory?
     def __init__(self, x, policy, value):
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
         self.x = np.concatenate((self.x, np.array(x)), axis=0)
@@ -72,6 +71,17 @@ class ResBlock(nn.Module):
         out = out + x
         return self.bn2(out)
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
 
 class OutBlock(nn.Module):
 
@@ -119,6 +129,7 @@ class Net(nn.Module):
         for block in range(0, 10):
             setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
         self.out_block = OutBlock()
+        self.initialize_weights()
 
     def forward(self, x):
         x = self.conv(x.clone())
@@ -126,6 +137,17 @@ class Net(nn.Module):
             x = getattr(self, "res-block-{}".format(block+1))(x.clone())
         policy, value = self.out_block(x.clone())
         return policy, value
+
+    # https://www.youtube.com/watch?v=xWQ-p_o0Uik
+    # https://pytorch.org/docs/stable/nn.init.html
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, ResBlock):
+                m.initialize_weights()
 
     def fit(self, data_loader, opt, loss, writer, step):
 

@@ -13,6 +13,7 @@ from model import Net, Loss, ChessDataset
 
 DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
+LIMIT = 1500000
 
 def parse_dataset(file, net, opt, loss, writer, step):
 
@@ -39,10 +40,8 @@ def parse_dataset(file, net, opt, loss, writer, step):
             board.push(move)
             moves += 1
 
-        # TODO: change frequency
-        # TODO: check why print(len(x)) is 100000
-        # TODO: make moves divisible by 64 so it doesn't drop the last few rows of data frequently
-        if (moves % 1000 == 0 or i == total_games-1):
+        if (moves >= LIMIT or i == total_games-1):
+            print(len(x))
             chess_dataset = ChessDataset(x, p, v)
             data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
             step = net.fit(data_loader, opt, loss, writer, step)
@@ -55,7 +54,6 @@ def parse_dataset(file, net, opt, loss, writer, step):
 
 if __name__ == '__main__':
 
-    # TODO: change init method?
     net = Net()
     opt = optim.Adam(net.parameters())
     loss = Loss()

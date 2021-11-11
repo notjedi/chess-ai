@@ -3,7 +3,7 @@ import torch
 import base64
 import traceback
 
-from train import Net
+from model import Net
 from mcts import MCTS
 from chess import svg
 from flask import Flask, request
