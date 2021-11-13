@@ -40,6 +40,7 @@ def move():
         move, value = mcts.choose_move()
         move = move.__str__()
         value = value.value()
+        del mcts
 
     try:
         # board.push(chess.Move(chess.parse_square(move[:2]), chess.parse_square(move[2:])))

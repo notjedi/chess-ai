@@ -1,3 +1,4 @@
+import os
 import torch
 import chess
 
@@ -41,12 +42,16 @@ def parse_dataset(file, net, opt, loss, writer, step):
             moves += 1
 
         if (moves >= LIMIT or i == total_games-1):
-            print(len(x))
             chess_dataset = ChessDataset(x, p, v)
-            data_loader = DataLoader(chess_dataset, batch_size=64, shuffle=True, num_workers=6, drop_last=True)
+            data_loader = DataLoader(chess_dataset, batch_size=128, shuffle=True, num_workers=6, drop_last=True)
             step = net.fit(data_loader, opt, loss, writer, step)
             torch.save(net.state_dict(), 'model/model.pth')
-            x, p, v = [], [], []
+            moves = 0
+            del data_loader
+            del chess_dataset
+            del x[:]
+            del p[:]
+            del v[:]
 
     games.close()
     return step
@@ -61,14 +66,16 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.device(device)
     net.to(device)
-    torch.autograd.set_detect_anomaly(True)
 
     # summary(net, input_size=(6, 8, 8))
     net.train()
+    net.load_state_dict(torch.load('model/model.pth'))
     writer = SummaryWriter()
 
     step = 0
     for file in glob(DATA_DIR + '/*.pgn'):
+        print(file)
         step = parse_dataset(file, net, opt, loss, writer, step)
+        os.system(f'mv {file} {file.replace("data", "processed")}')
 
     writer.close()

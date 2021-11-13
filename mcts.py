@@ -58,6 +58,7 @@ class Node():
     def deleteNodes(self):
         for child in self.children.values():
             child.deleteNodes()
+            del child
 
 
 class MCTS():
@@ -68,6 +69,7 @@ class MCTS():
         self.net = net
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.num_sims = num_sims
+        self.net.eval()
 
     def playout(self):
 
@@ -78,7 +80,9 @@ class MCTS():
         board = chess.Board(node.fen)
         state = torch.tensor(State(board).encode_board()[np.newaxis])
         state.to(self.device)
-        policy, value = self.net(state)
+        policy, value = None, None
+        with torch.no_grad():
+            policy, value = self.net(state)
         node.expand(policy.detach().numpy().squeeze())
 
         # backpropagte
@@ -86,6 +90,10 @@ class MCTS():
             node.backpropagte(RESULTS[board.result()])
         else:
             node.backpropagte(value)
+        del policy
+        del value
+        del state
+        del board
 
     def choose_move(self):
         for _ in range(self.num_sims):

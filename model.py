@@ -6,7 +6,7 @@ from tqdm import trange
 from torch.nn import functional as F
 from torch.utils.data import Dataset
 
-EPOCHS = 5
+EPOCHS = 3
 
 # https://web.stanford.edu/~surag/posts/alphazero.html
 # https://int8.io/monte-carlo-tree-search-beginners-guide/
@@ -132,10 +132,10 @@ class Net(nn.Module):
         self.initialize_weights()
 
     def forward(self, x):
-        x = self.conv(x.clone())
+        x = self.conv(x)
         for block in range(0, 10):
-            x = getattr(self, "res-block-{}".format(block+1))(x.clone())
-        policy, value = self.out_block(x.clone())
+            x = getattr(self, "res-block-{}".format(block+1))(x)
+        policy, value = self.out_block(x)
         return policy, value
 
     # https://www.youtube.com/watch?v=xWQ-p_o0Uik
@@ -168,9 +168,9 @@ class Net(nn.Module):
                 if step % 1000 == 0:
                     writer.add_scalar("Policy Loss/train", policy_loss, step)
                     writer.add_scalar("Value Loss/train", value_loss, step)
-                    print(policy_loss, value_loss)
                     # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
                 step += 1
 
             writer.flush()
+        print()
         return step
