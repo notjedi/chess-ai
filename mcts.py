@@ -3,9 +3,12 @@ import chess
 import numpy as np
 
 from state import State
+from config import LABELS, N_LABELS
+from util import move_lookup
 
 CPUCT = 1
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
+MOVE_LOOKUP = move_lookup(LABELS, N_LABELS)
 
 class Node():
     """
@@ -29,9 +32,10 @@ class Node():
         self.P = prob
 
     def expand(self, probablity):
+        # did i mess up with the fen?
         board = chess.Board(self.fen)
         for move in board.legal_moves:
-            self.children[move] = Node(self, self.fen, probablity[move.to_square])
+            self.children[move] = Node(self, self.fen, probablity[MOVE_LOOKUP[move.uci()]])
 
     def value(self):
         # sqrt over the whole term or just the numerator?
@@ -73,16 +77,17 @@ class MCTS():
 
     def playout(self):
 
+        torch.no_grad()
         # select
         node = self.get_leaf_node()
 
         # expand
         board = chess.Board(node.fen)
-        state = torch.tensor(State(board).encode_board()[np.newaxis])
+        state = torch.as_tensor(State(board).encode_board()[np.newaxis])
         state.to(self.device)
-        policy, value = None, None
-        with torch.no_grad():
-            policy, value = self.net(state)
+        # policy, value = None, None
+        # with torch.no_grad():
+        policy, value = self.net(state)
         node.expand(policy.detach().numpy().squeeze())
 
         # backpropagte
