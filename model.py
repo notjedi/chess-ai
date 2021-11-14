@@ -6,6 +6,8 @@ from tqdm import trange
 from torch.nn import functional as F
 from torch.utils.data import Dataset
 
+from config import N_LABELS
+
 EPOCHS = 3
 
 # https://web.stanford.edu/~surag/posts/alphazero.html
@@ -17,11 +19,11 @@ EPOCHS = 3
 
 class ChessDataset(Dataset):
 
-    def __init__(self, x, policy, value):
+    def __init__(self, x, policy, value, device):
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
-        self.x = np.concatenate((self.x, np.array(x)), axis=0)
-        self.policy = np.concatenate((self.policy, np.array(policy)), axis=0)
-        self.value = np.concatenate((self.value, np.array(value)), axis=0)
+        self.x = torch.as_tensor(np.concatenate((self.x, np.array(x)), axis=0)).to(device)
+        self.policy = torch.as_tensor(np.concatenate((self.policy, np.array(policy)), axis=0)).to(device)
+        self.value = torch.as_tensor(np.concatenate((self.value, np.array(value)), axis=0)).to(device)
 
     def __len__(self):
         return len(self.x)
@@ -90,7 +92,7 @@ class OutBlock(nn.Module):
         self.reshape = FCView()
         # (8 - 1 / 1) + 1
         self.conv_block_policy = ConvBlock(256, 2, 1, 0, 1)
-        self.fc_policy = nn.Linear(2 * 8 * 8, 64)
+        self.fc_policy = nn.Linear(2 * 8 * 8, N_LABELS)
 
         # (8 - 3 + 2 / 1) + 1
         self.conv_block_value = ConvBlock(256, 2, 3, 1, 1)
@@ -124,7 +126,7 @@ class Net(nn.Module):
     # ((img_size - kern_size + (2 * padding_size))/stride) + 1
     def __init__(self):
         super(Net, self).__init__()
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        # self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.conv = ConvBlock(6, 256, 3, 1, 1)
         for block in range(0, 10):
             setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
@@ -154,12 +156,11 @@ class Net(nn.Module):
         for _ in trange(EPOCHS):
             for data, policy, value in data_loader:
 
-                data = data.to(self.device)
-                policy = policy.long().to(self.device)
-                value = value.float().to(self.device)
+                opt.zero_grad(set_to_none=True)
+                policy = policy.long()
+                value = value.float()
                 policy_pred, value_pred = self.forward(data)
 
-                opt.zero_grad()
                 policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
                 policy_loss.backward(retain_graph=True)
                 value_loss.backward()
@@ -168,6 +169,7 @@ class Net(nn.Module):
                 if step % 1000 == 0:
                     writer.add_scalar("Policy Loss/train", policy_loss, step)
                     writer.add_scalar("Value Loss/train", value_loss, step)
+                    print(policy_loss, value_loss)
                     # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
                 step += 1
 
