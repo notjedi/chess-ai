@@ -6,7 +6,7 @@ from tqdm import trange
 from torch.nn import functional as F
 from torch.utils.data import Dataset
 
-from config import N_LABELS
+from config import N_LABELS, device
 
 EPOCHS = 3
 
@@ -19,11 +19,12 @@ EPOCHS = 3
 
 class ChessDataset(Dataset):
 
-    def __init__(self, x, policy, value, device):
-        self.x, self.policy, self.value = np.empty((0, 6, 8, 8), np.float32), np.empty(0), np.empty(0, np.float32)
-        self.x = torch.as_tensor(np.concatenate((self.x, np.array(x)), axis=0)).to(device)
-        self.policy = torch.as_tensor(np.concatenate((self.policy, np.array(policy)), axis=0)).to(device)
-        self.value = torch.as_tensor(np.concatenate((self.value, np.array(value)), axis=0)).to(device)
+    def __init__(self, x, policy, value):
+        self.x, self.policy, self.value = np.empty((0, 6, 8, 8)), np.empty(0), np.empty(0)
+
+        self.x = torch.as_tensor(np.array(np.concatenate((self.x, x), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
+        self.policy = torch.as_tensor(np.array(np.concatenate((self.policy, policy), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
+        self.value = torch.as_tensor(np.array(np.concatenate((self.value, value), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
 
     def __len__(self):
         return len(self.x)
@@ -59,9 +60,11 @@ class ResBlock(nn.Module):
     
     def __init__(self, in_channels, out_channels, kernel_size, padding=1, stride=1):
         super(ResBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size, padding, stride)
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
+            kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding, stride)
+        self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
+            kernel_size=kernel_size, stride=stride, padding=padding, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
 
     def forward(self, x):
@@ -126,7 +129,6 @@ class Net(nn.Module):
     # ((img_size - kern_size + (2 * padding_size))/stride) + 1
     def __init__(self):
         super(Net, self).__init__()
-        # self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.conv = ConvBlock(6, 256, 3, 1, 1)
         for block in range(0, 10):
             setattr(self, "res-block-{}".format(block+1), ResBlock(256, 256, 3, 1, 1))
@@ -151,25 +153,27 @@ class Net(nn.Module):
             elif isinstance(m, ResBlock):
                 m.initialize_weights()
 
-    def fit(self, data_loader, opt, loss, writer, step):
+    def fit(self, data_loader, opt, scheduler, loss, writer, step):
 
         for _ in trange(EPOCHS):
             for data, policy, value in data_loader:
 
                 opt.zero_grad(set_to_none=True)
-                policy = policy.long()
-                value = value.float()
+                policy_pred, value_pred = None, None
                 policy_pred, value_pred = self.forward(data)
 
                 policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
-                policy_loss.backward(retain_graph=True)
-                value_loss.backward()
+                total_loss = 0.9 * policy_loss + 0.1 * value_loss
+                # https://github.com/PyTorchLightning/pytorch-lightning/issues/2645
+                total_loss.backward()
                 opt.step()
+                scheduler.step()
 
                 if step % 1000 == 0:
                     writer.add_scalar("Policy Loss/train", policy_loss, step)
                     writer.add_scalar("Value Loss/train", value_loss, step)
-                    print(policy_loss, value_loss)
+                    writer.add_scalar("Learning Rate/train", scheduler.get_lr(), step)
+                    print(policy_loss, value_loss, scheduler.get_lr())
                     # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
                 step += 1
 

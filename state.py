@@ -9,7 +9,7 @@ class State():
         self.board = board
 
     def encode_board(self):
-        x = np.zeros((6, 64), dtype=np.uint8)
+        x = np.zeros((6, 64), dtype=np.int8)
         for i in range(64):
             piece = self.board.piece_at(i)
             if piece != None:
