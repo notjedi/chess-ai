@@ -2,11 +2,11 @@ import torch
 import numpy as np
 
 from torch import nn
-from tqdm import trange
+from tqdm import tqdm, trange
 from torch.nn import functional as F
 from torch.utils.data import Dataset
 
-from config import N_LABELS, device
+from config import N_LABELS, REPORT, device
 
 EPOCHS = 3
 
@@ -20,11 +20,11 @@ EPOCHS = 3
 class ChessDataset(Dataset):
 
     def __init__(self, x, policy, value):
-        self.x, self.policy, self.value = np.empty((0, 6, 8, 8)), np.empty(0), np.empty(0)
+        self.x, self.policy, self.value = np.empty((0, 6, 8, 8), dtype=np.float16), np.empty(0, dtype=np.float16), np.empty(0, dtype=np.float16)
 
-        self.x = torch.as_tensor(np.array(np.concatenate((self.x, x), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
-        self.policy = torch.as_tensor(np.array(np.concatenate((self.policy, policy), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
-        self.value = torch.as_tensor(np.array(np.concatenate((self.value, value), axis=0)), dtype=torch.float16).to(device, non_blocking=True)
+        self.x = torch.from_numpy(np.concatenate((self.x, x), axis=0)).to(device)
+        self.policy = torch.from_numpy(np.concatenate((self.policy, policy), axis=0)).to(device)
+        self.value = torch.from_numpy(np.concatenate((self.value, value), axis=0)).to(device)
 
     def __len__(self):
         return len(self.x)
@@ -156,7 +156,7 @@ class Net(nn.Module):
     def fit(self, data_loader, opt, scheduler, loss, writer, step):
 
         for _ in trange(EPOCHS):
-            for data, policy, value in data_loader:
+            for data, policy, value in (t:=tqdm(data_loader)):
 
                 opt.zero_grad(set_to_none=True)
                 policy_pred, value_pred = None, None
@@ -169,14 +169,12 @@ class Net(nn.Module):
                 opt.step()
                 scheduler.step()
 
-                if step % 1000 == 0:
+                if step % REPORT == 0:
                     writer.add_scalar("Policy Loss/train", policy_loss, step)
                     writer.add_scalar("Value Loss/train", value_loss, step)
-                    writer.add_scalar("Learning Rate/train", scheduler.get_lr(), step)
-                    print(policy_loss, value_loss, scheduler.get_lr())
-                    # t.set_description('policy loss %.2f value loss %.2f' % (policy_loss, value_loss))
+                    writer.add_scalar("Learning Rate/train", scheduler.get_last_lr()[0], step)
+                    t.set_description('policy loss %.4f value loss %.4f' % (policy_loss, value_loss))
                 step += 1
 
             writer.flush()
-        print()
         return step

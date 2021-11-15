@@ -19,7 +19,7 @@ from util import move_lookup
 MOVE_LOOKUP = move_lookup(LABELS, N_LABELS)
 DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
-LIMIT = 1500000
+LIMIT = 2000000
 MINELO = 1900
 
 def parse_dataset(file, net, opt, scheduler, loss, writer, step):
@@ -31,6 +31,7 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
     games.close()
     games = open(file, encoding='utf-8')
     moves = 0
+    skiped_games = 0
 
     for i in trange(total_games):
 
@@ -39,6 +40,7 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
         whiteElo = int(game.headers['WhiteElo'])
         blackElo = int(game.headers['BlackElo'] )
         if (whiteElo < MINELO or blackElo < MINELO):
+            skiped_games += 1
             continue
 
         result = RESULTS[game.headers['Result']]
@@ -53,6 +55,7 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
             moves += 1
 
         if (moves >= LIMIT or i == total_games-1):
+            print(skiped_games)
             chess_dataset = ChessDataset(x, p, v)
             data_loader = DataLoader(chess_dataset, batch_size=512, shuffle=True, drop_last=True)
             del x[:]
@@ -82,11 +85,14 @@ if __name__ == '__main__':
     # Initial Loss is 8 which is really expected because one would expect the intitial loss to be 7.58,
     # because the probablity would be somewhat near 1/1968. -ln(1/1968) = 7.58.
 
-    torch.backends.cudnn.benchmark = True
+    torch.manual_seed(1337)
     net = Net()
-    opt = optim.Adam(net.parameters(), lr=0.01, weight_decay=0.1)
     # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
-    scheduler = StepLR(opt, step_size=20000, gamma=0.1)
+    # weight decay(of 0.1) abosolutely destroys the model idk why
+    opt = optim.Adam(net.parameters(), lr=0.001)
+    scheduler = StepLR(opt, step_size=40000, gamma=0.1)
+    # opt = optim.Adam(net.parameters(), lr=0.01)
+    # scheduler = StepLR(opt, step_size=3000, gamma=0.1)
     loss = Loss()
 
     torch.device(device)
@@ -94,7 +100,7 @@ if __name__ == '__main__':
 
     # summary(net, input_size=(6, 8, 8))
     net.train()
-    # net.load_state_dict(torch.load('model/model.pth'))
+    net.load_state_dict(torch.load('model/model.pth'))
     writer = SummaryWriter()
     model = torch.nn.DataParallel(net).to(device)
 

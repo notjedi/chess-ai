@@ -32,9 +32,9 @@ class Node():
         self.P = prob
 
     def expand(self, probablity):
-        # did i mess up with the fen?
         board = chess.Board(self.fen)
         for move in board.legal_moves:
+            # TODO: did i mess up with the fen while passing it to the child?
             self.children[move] = Node(self, self.fen, probablity[MOVE_LOOKUP[move.uci()]])
 
     def value(self):
@@ -85,8 +85,6 @@ class MCTS():
         board = chess.Board(node.fen)
         state = torch.as_tensor(State(board).encode_board()[np.newaxis])
         state.to(self.device)
-        # policy, value = None, None
-        # with torch.no_grad():
         policy, value = self.net(state)
         node.expand(policy.detach().numpy().squeeze())
 
