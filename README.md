@@ -2,21 +2,20 @@
 
 A chess engine using CNN's + MCTS
 
-I'm trying to build a policy + value head network (an alphazero wannabe)
+I'm trying to build a policy + value head network (an alphazero wannabe - the self play)
 
 ### what i'm trying to do here:
 
     general idea
 
-    - train the NN on FICS dataset - on progress
+    - train the NN on FICS dataset
     - while playing select the next move using MCTS
     - instead of doing rollouts on every leaf node pass the state to the NN
-    - get value and policy outputs from NN and backpropagate the values through the tree
-    - do this idk maybe 500 times and choose the next promising move
+    - get value and policy outputs from NN and backpropagate the node stats up the tree
 
     CNN
     
-    - a NN with 10 hidden layers (a little deep inspired by AlphaZero and ImageNet)
+    - a NN with 10 hidden layers (1 conv + 10 resnets)
     - a policy head - probablity of moves
     - a value head  - the end result
 
@@ -27,11 +26,24 @@ I'm trying to build a policy + value head network (an alphazero wannabe)
     - Playouts - use the NN here
     - Backpropagate - update the different variables for all nodes(that we traversed thro)
 
-    Random Thoughts
+    TODO
 
-    - should we encode en passant, promotion and draw by moves?
-    - will a 5x5 kernel affect the performance of the network? (ig it does cause the chess board is too small(8x8 tensor represenation) 
-      and we will kinda lose some information while convolving a 5x5 kernel over the image)
+    - There is definitely something wrong with my MCTS implementation (raw outputs from 
+      NN perform better), fix it
+    - Train the model on more data? I was able to go upto 0.4 on a sample subset of data
+      the current best model is about 1.7
+    - try out 5x5 conv in the first layer
+
+    OBSERVATIONS
+
+    - Weight decay (i used 0.1) destorys the model
+    - Moving from a 64-solution (each cell) space to 1968-solution (each possible move) space 
+      (taking into account the totality of moves) helps the model tremendously
+    - Using lr scheduler doesn't help much (probably plateau scheduler would help, haven't tried it though)
+    - use float16, get memory discount
+    - max out batch size, save training time
+
+This branch is bloated with little or no optimization (memory/time). The latest updates are on the policy-head branch, use code from that branch.
 
 ### Resources
 
@@ -39,5 +51,4 @@ I'm trying to build a policy + value head network (an alphazero wannabe)
 - [SAN](https://www.chessprogramming.org/Algebraic_Chess_Notation#Standard_Algebraic_Notation_.28SAN.29)
 - [python-chess](https://python-chess.readthedocs.io/en/latest/core.html)
 - [MCTS](https://int8.io/monte-carlo-tree-search-beginners-guide/) guide
-- [A2C](https://www.datahubbs.com/two-headed-a2c-network-in-pytorch/) network basic guide
 - a thread on [BatchNorm](https://www.reddit.com/r/MachineLearning/comments/67gonq/d_batch_normalization_before_or_after_relu/)
