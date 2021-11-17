@@ -29,7 +29,7 @@ def main():
 @app.route('/move')
 def move():
     if board.is_game_over():
-        print("Game Over")
+        print("Game Over", board.result())
         return app.response_class(
           response="Game Over",
           status=200
@@ -43,12 +43,12 @@ def move():
     else:
         # the model has to play
         mcts = MCTS(board, net, 500)
-        move, value = mcts.choose_move()
-        move = move.__str__()
-        value = value.value()
+        move, node = mcts.choose_move()
+        move = move.uci()
+        value = node.value()
         del mcts
         if DEBUG:
-            print(move, value*100, board.fen())
+            print(move, value, board.fen())
 
     try:
         board.push_san(move)

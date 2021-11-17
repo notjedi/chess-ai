@@ -66,7 +66,6 @@ if __name__ == '__main__':
 
     # TODO: gradient accumulation?
 
-    # TODO: self play module to eval the model?
     # TODO: doesn't know how to checkmate or even more generally what moves to make nearing the endgame
     # (repetition in moves, doesn't promote even when it's 1 move away, misses easy checkmate opportunities)
     # should i train on low elo games(cause gm games usually end in a draw)? or is it a search problem in mcts?
