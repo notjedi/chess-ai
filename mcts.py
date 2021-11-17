@@ -3,7 +3,7 @@ import chess
 import numpy as np
 
 from state import State
-from config import LABELS, N_LABELS
+from config import LABELS, N_LABELS, device
 from util import move_lookup
 
 CPUCT = 1
@@ -34,8 +34,9 @@ class Node():
     def expand(self, probablity):
         board = chess.Board(self.fen)
         for move in board.legal_moves:
-            # TODO: did i mess up with the fen while passing it to the child?
+            board.push_san(move.uci())
             self.children[move] = Node(self, self.fen, probablity[MOVE_LOOKUP[move.uci()]])
+            board.pop()
 
     def value(self):
         # sqrt over the whole term or just the numerator?
@@ -71,22 +72,21 @@ class MCTS():
         self.board = board
         self.root = Node(None, board.fen(), 1)
         self.net = net
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.num_sims = num_sims
-        self.net.eval()
 
     def playout(self):
 
-        torch.no_grad()
         # select
         node = self.get_leaf_node()
 
         # expand
         board = chess.Board(node.fen)
-        state = torch.as_tensor(State(board).encode_board()[np.newaxis])
-        state.to(self.device)
-        policy, value = self.net(state)
-        node.expand(policy.detach().numpy().squeeze())
+        state = torch.from_numpy(State(board).encode_board()[np.newaxis]).to(device)
+        with torch.no_grad():
+            policy, value = self.net(state)
+            policy = policy.cpu().detach().numpy()
+            value = value.cpu().detach().numpy()
+        node.expand(policy.squeeze())
 
         # backpropagte
         if board.is_game_over():
