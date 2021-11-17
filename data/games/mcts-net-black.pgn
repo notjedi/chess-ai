@@ -1,0 +1,15 @@
+[Event "AdamW vs AdamW-Epoch1"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "AdamW-Epoch2"]
+[Black "AdamW-Epoch1"]
+[Result "0-1"]
+
+1. d4 Nf6 2. Nf3 b6 3. Bf4 Bb7 4. e3 e6 5. Bd3 Be7 6. Nbd2 O-O 7. Qe2 d5 8. h3
+c5 9. c3 Nc6 10. O-O Rc8 11. a4 cxd4 12. Nxd4 h6 13. N2f3 Bc5 14. g4 Ne4 15. h4
+e5 16. Bg3 Nxg3 17. fxg3 exd4 18. exd4 Be7 19. Kg2 a6 20. Rae1 Bd6 21. Bh7+ Kh8
+22. Bf5 Ra8 23. g5 b5 24. axb5 axb5 25. gxh6 g6 26. Bg4 b4 27. Nd2 bxc3 28. Nf3
+cxb2 29. Qxb2 Qc8 30. Ng5 Qxg4 31. Rxf7 Qxg3+ 32. Kf1 Ba6+ 33. Qe2 Bxe2+ 34.
+Rxe2 Nxd4 35. Rd2 Ra1+ 36. Rd1 Rxd1# 0-1
+
