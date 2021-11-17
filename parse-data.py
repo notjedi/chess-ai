@@ -9,7 +9,6 @@ from torch import optim
 from state import State
 from torchsummary import summary
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 
 from model import Net, Loss, ChessDataset
@@ -20,9 +19,8 @@ MOVE_LOOKUP = move_lookup(LABELS, N_LABELS)
 DATA_DIR = '/mnt/Seagate/Code/chess-ai/data'
 RESULTS = {'0-1': -1, '1/2-1/2': 0, '1-0': 1}
 LIMIT = 2000000
-MINELO = 1900
 
-def parse_dataset(file, net, opt, scheduler, loss, writer, step):
+def parse_dataset(file, net, opt, loss, writer, step):
 
     x, p, v = [], [], []
 
@@ -31,17 +29,11 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
     games.close()
     games = open(file, encoding='utf-8')
     moves = 0
-    skiped_games = 0
 
     for i in trange(total_games):
 
         game = pgn.read_game(games)
         board = chess.Board()
-        whiteElo = int(game.headers['WhiteElo'])
-        blackElo = int(game.headers['BlackElo'] )
-        if (whiteElo < MINELO or blackElo < MINELO):
-            skiped_games += 1
-            continue
 
         result = RESULTS[game.headers['Result']]
         for move in game.mainline_moves():
@@ -55,13 +47,12 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
             moves += 1
 
         if (moves >= LIMIT or i == total_games-1):
-            print(skiped_games)
             chess_dataset = ChessDataset(x, p, v)
             data_loader = DataLoader(chess_dataset, batch_size=512, shuffle=True, drop_last=True)
             del x[:]
             del p[:]
             del v[:]
-            step = net.fit(data_loader, opt, scheduler, loss, writer, step)
+            step = net.fit(data_loader, opt, loss, writer, step)
             torch.save(net.state_dict(), 'model/model.pth')
             moves = 0
             del data_loader
@@ -73,9 +64,7 @@ def parse_dataset(file, net, opt, scheduler, loss, writer, step):
 
 if __name__ == '__main__':
 
-    # TODO: test with AdamW?
     # TODO: gradient accumulation?
-    # TODO: explore other lr schedulers
 
     # TODO: self play module to eval the model?
     # TODO: doesn't know how to checkmate or even more generally what moves to make nearing the endgame
@@ -89,25 +78,20 @@ if __name__ == '__main__':
     net = Net()
     # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
     # weight decay(of 0.1) abosolutely destroys the model idk why
-    opt = optim.Adam(net.parameters(), lr=0.001)
-    scheduler = StepLR(opt, step_size=40000, gamma=0.1)
-    # opt = optim.Adam(net.parameters(), lr=0.01)
-    # scheduler = StepLR(opt, step_size=3000, gamma=0.1)
+    opt = optim.AdamW(net.parameters(), lr=0.001)
     loss = Loss()
 
-    torch.device(device)
     net.to(device)
 
     # summary(net, input_size=(6, 8, 8))
     net.train()
-    net.load_state_dict(torch.load('model/model.pth'))
+    # net.load_state_dict(torch.load('model/model.pth'))
     writer = SummaryWriter()
-    model = torch.nn.DataParallel(net).to(device)
 
     step = 0
     for file in glob(DATA_DIR + '/*.pgn'):
         print(file)
-        step = parse_dataset(file, net, opt, scheduler, loss, writer, step)
+        step = parse_dataset(file, net, opt, loss, writer, step)
         os.system(f'mv {file} {file.replace("data", "processed")}')
 
     writer.close()

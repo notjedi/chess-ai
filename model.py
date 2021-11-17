@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 from config import N_LABELS, REPORT, device
 
-EPOCHS = 3
+EPOCHS = 1
 
 # https://web.stanford.edu/~surag/posts/alphazero.html
 # https://int8.io/monte-carlo-tree-search-beginners-guide/
@@ -21,7 +21,7 @@ class ChessDataset(Dataset):
 
     def __init__(self, x, policy, value):
         self.x, self.policy, self.value = np.empty((0, 6, 8, 8), dtype=np.float16), np.empty(0, dtype=np.float16), np.empty(0, dtype=np.float16)
-
+        # https://stackoverflow.com/questions/68183227/read-data-from-numpy-array-into-a-pytorch-tensor-without-creating-a-new-tensor
         self.x = torch.from_numpy(np.concatenate((self.x, x), axis=0)).to(device)
         self.policy = torch.from_numpy(np.concatenate((self.policy, policy), axis=0)).to(device)
         self.value = torch.from_numpy(np.concatenate((self.value, value), axis=0)).to(device)
@@ -153,13 +153,12 @@ class Net(nn.Module):
             elif isinstance(m, ResBlock):
                 m.initialize_weights()
 
-    def fit(self, data_loader, opt, scheduler, loss, writer, step):
+    def fit(self, data_loader, opt, loss, writer, step):
 
         for _ in trange(EPOCHS):
             for data, policy, value in (t:=tqdm(data_loader)):
 
                 opt.zero_grad(set_to_none=True)
-                policy_pred, value_pred = None, None
                 policy_pred, value_pred = self.forward(data)
 
                 policy_loss, value_loss = loss(policy_pred, policy, value_pred, value)
@@ -167,12 +166,10 @@ class Net(nn.Module):
                 # https://github.com/PyTorchLightning/pytorch-lightning/issues/2645
                 total_loss.backward()
                 opt.step()
-                scheduler.step()
 
                 if step % REPORT == 0:
                     writer.add_scalar("Policy Loss/train", policy_loss, step)
                     writer.add_scalar("Value Loss/train", value_loss, step)
-                    writer.add_scalar("Learning Rate/train", scheduler.get_last_lr()[0], step)
                     t.set_description('policy loss %.4f value loss %.4f' % (policy_loss, value_loss))
                 step += 1
 
