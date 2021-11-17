@@ -64,8 +64,6 @@ def parse_dataset(file, net, opt, loss, writer, step):
 
 if __name__ == '__main__':
 
-    # TODO: gradient accumulation?
-
     # TODO: doesn't know how to checkmate or even more generally what moves to make nearing the endgame
     # (repetition in moves, doesn't promote even when it's 1 move away, misses easy checkmate opportunities)
     # should i train on low elo games(cause gm games usually end in a draw)? or is it a search problem in mcts?
@@ -75,8 +73,6 @@ if __name__ == '__main__':
 
     torch.manual_seed(1337)
     net = Net()
-    # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
-    # weight decay(of 0.1) abosolutely destroys the model idk why
     opt = optim.AdamW(net.parameters(), lr=0.001)
     loss = Loss()
 
