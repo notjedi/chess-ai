@@ -14,7 +14,7 @@ DEBUG = 1
 MOVE_LOOKUP = move_lookup(LABELS, N_LABELS)
 
 def playWithMcts(p1, p2, board):
-    
+
     while not board.is_game_over():
 
         if board.turn:

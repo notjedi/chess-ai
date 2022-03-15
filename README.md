@@ -33,6 +33,8 @@ I'm trying to build a policy + value head network (an alphazero wannabe - the se
     - Train the model on more data? I was able to go upto 0.4 on a sample subset of data
       the current best model is about 1.7
     - try out 5x5 conv in the first layer
+    - encode previous moves for better moves as we approach end of the game? (prolly)
+    - do i really need the value head?
 
     OBSERVATIONS
 

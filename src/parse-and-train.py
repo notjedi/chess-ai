@@ -7,9 +7,9 @@ from chess import pgn
 from glob import glob
 from torch import optim
 from state import State
-from torchsummary import summary
+from torchinfo import summary
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 from model import Net, Loss, ChessDataset
 from config import N_LABELS, LABELS, device
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     net.to(device)
 
-    # summary(net, input_size=(6, 8, 8))
+    # summary(net, input_size=(1, 6, 8, 8))
     net.train()
     # net.load_state_dict(torch.load('model/model.pth'))
     writer = SummaryWriter()

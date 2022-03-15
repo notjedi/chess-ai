@@ -57,7 +57,7 @@ class ConvBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    
+
     def __init__(self, in_channels, out_channels, kernel_size, padding=1, stride=1):
         super(ResBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
@@ -105,7 +105,7 @@ class OutBlock(nn.Module):
     def forward(self, x):
         policy = self.reshape(self.conv_block_policy(x))
         policy = self.fc_policy(policy)
-        
+
         value = self.reshape(self.conv_block_value(x))
         value = F.relu(self.fc1_value(value))
         value = self.fc2_value(value)
